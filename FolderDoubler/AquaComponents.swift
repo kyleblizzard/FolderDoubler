@@ -210,13 +210,17 @@ private struct AquaSecondaryButtonBody: View {
 // Usage: SomeView().aquaPanel()
 
 struct AquaPanelModifier: ViewModifier {
+    /// Configurable inner padding — defaults to space6 (24pt) for full windows,
+    /// use space4 (16pt) or space3 (12pt) for compact layouts like menu bar popovers.
+    var padding: CGFloat = AquaTheme.space6
+
     @Environment(\.colorScheme) private var colorScheme
 
     func body(content: Content) -> some View {
         let theme = AquaTheme(colorScheme: colorScheme)
 
         content
-            .padding(AquaTheme.space6)
+            .padding(padding)
             .background(.regularMaterial)
             // Top highlight: white → clear over the top 30% of the panel
             .overlay(alignment: .top) {
@@ -237,9 +241,10 @@ struct AquaPanelModifier: ViewModifier {
 }
 
 extension View {
-    /// Wraps this view in a frosted Aqua panel with top highlight, border, and shadow
-    func aquaPanel() -> some View {
-        modifier(AquaPanelModifier())
+    /// Wraps this view in a frosted Aqua panel with top highlight, border, and shadow.
+    /// Pass a smaller padding value for compact layouts (e.g. menu bar popovers).
+    func aquaPanel(padding: CGFloat = AquaTheme.space6) -> some View {
+        modifier(AquaPanelModifier(padding: padding))
     }
 }
 

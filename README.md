@@ -16,14 +16,17 @@ The sync is one-way: source always wins. This isn't a two-way merge tool. It's a
 
 ## The UI
 
+It lives in your menu bar — no Dock icon, no window to manage. Click the icon, and the full UI drops down as a popover. The menu bar icon changes based on sync status so you always know what's happening at a glance.
+
 The interface follows a Modern Aqua design language — frosted glass panels, the signature blue accent, proper lighting model with top highlights and shadows. It's a utility app, but it doesn't have to look like one.
 
 You get:
 - Source and destination folder pickers
-- A big Start/Stop button
+- A Start/Stop button with Aqua gel styling
 - A live activity log showing every file that gets synced
 - Configurable exclusion patterns (`.git`, `node_modules`, `DerivedData`, etc. are excluded by default)
 - Settings that persist between launches
+- A Quit button (since there's no Dock icon to right-click)
 
 ## Building
 
@@ -42,6 +45,10 @@ Three files do all the work:
 - **AquaTheme.swift** + **AquaComponents.swift** — The design system. All colors, spacing, radii, and component styles are defined as tokens. Nothing is invented at the component level.
 
 ## Version History
+
+### v0.0.2
+
+Converted to a menu bar app. No more Dock icon or standalone window — the entire UI lives in a compact popover that drops from the menu bar. The icon changes based on sync status (outline = idle, filled = monitoring, arrows = syncing, warning = error). Added inline exclusion management via a disclosure group, and a Quit button in the footer.
 
 ### v0.0.1
 

@@ -7,29 +7,47 @@ import SwiftUI
 
 // MARK: - App Entry Point
 //
-// The @main attribute tells Swift this is where the app starts.
-// SwiftUI's App protocol defines the app's structure — which windows to show,
-// what data they share, and how the app behaves.
+// FolderDoubler lives in the menu bar, not the Dock. Clicking the menu bar
+// icon opens a popover with the full sync UI. The app uses MenuBarExtra with
+// .menuBarExtraStyle(.window) to get a proper SwiftUI popover rather than
+// a dropdown menu.
 //
-// FolderDoubler is a single-window utility app. The SyncEngine is created
-// once as a StateObject and shared with all views via .environmentObject().
+// LSUIElement is set to YES in the build settings (project.yml) so the app
+// doesn't appear in the Dock or the Cmd+Tab switcher. The menu bar icon is
+// the only entry point.
 
 @main
 struct FolderDoublerApp: App {
 
-    // StateObject keeps the SyncEngine alive for the entire lifetime of the app.
-    // It's created once here and never recreated, even when views update.
+    // StateObject keeps the SyncEngine alive for the entire app lifetime.
     @StateObject private var syncEngine = SyncEngine()
 
     var body: some Scene {
-
-        // WindowGroup creates the main app window. macOS will show this when
-        // the app launches and allow the user to reopen it from the Window menu.
-        WindowGroup {
-            ContentView()
+        // MenuBarExtra creates a persistent menu bar item. The label closure
+        // defines the icon shown in the menu bar, and the content closure
+        // defines what appears in the popover when clicked.
+        MenuBarExtra {
+            MenuBarPopoverView()
                 .environmentObject(syncEngine)
+        } label: {
+            // The menu bar icon changes based on sync status to give
+            // at-a-glance feedback without opening the popover.
+            Label("FolderDoubler", systemImage: menuBarIcon)
         }
-        // Default window size that fits the Aqua layout comfortably
-        .defaultSize(width: 720, height: 640)
+        .menuBarExtraStyle(.window)
+    }
+
+    /// Resolves the SF Symbol based on current sync status.
+    /// - Idle: outline document pair
+    /// - Monitoring: filled document pair (active)
+    /// - Syncing: rotating arrows (work in progress)
+    /// - Error: warning triangle
+    private var menuBarIcon: String {
+        switch syncEngine.status {
+        case .idle:       return "doc.on.doc"
+        case .monitoring: return "doc.on.doc.fill"
+        case .syncing:    return "arrow.triangle.2.circlepath"
+        case .error:      return "exclamationmark.triangle"
+        }
     }
 }

@@ -5,62 +5,62 @@
 
 import SwiftUI
 
-// MARK: - ContentView
+// MARK: - MenuBarPopoverView
 //
-// The main window of FolderDoubler, designed to the Modern Aqua spec.
+// The main UI that appears when you click the menu bar icon. Everything lives
+// in this single popover — no separate windows or sheets. The layout is compact
+// to fit comfortably in a menu bar popover while still following the Aqua spec.
 //
-// Layout structure (top to bottom on the base canvas):
-// 1. Header — app name, icon, and status badge
-// 2. Folder Panel — source and destination selection in a frosted panel
-// 3. Controls — Aqua Gel primary button + secondary actions
-// 4. Activity Log — scrollable sync history in a frosted panel
-// 5. Footer — last sync time and total file count
+// Sections (top to bottom):
+// 1. Header — app name + status badge
+// 2. Folder panel — source and destination in a frosted panel
+// 3. Controls — primary start/stop + sync now
+// 4. Activity log — recent sync events in a frosted panel
+// 5. Footer — stats, exclusions toggle, and quit button
 //
-// All spacing uses the 4pt grid from the token system.
-// All components use the Aqua material tiers and lighting model.
+// Exclusions are shown inline via a disclosure group to avoid
+// popover-inside-popover issues with MenuBarExtra.
 
-struct ContentView: View {
+struct MenuBarPopoverView: View {
 
     @EnvironmentObject var engine: SyncEngine
     @Environment(\.colorScheme) var colorScheme
 
-    // Local UI state
-    @State private var newPattern = ""
+    // Tracks whether the exclusions section is expanded
     @State private var showingExclusions = false
+    @State private var newPattern = ""
 
-    /// The resolved theme based on current appearance (light or dark)
     private var theme: AquaTheme { AquaTheme(colorScheme: colorScheme) }
 
     var body: some View {
-        // Tier 1 — Base Canvas: the app background everything sits on
         ZStack {
+            // Tier 1 — Base Canvas
             theme.bgBase.ignoresSafeArea()
 
-            ScrollView {
-                VStack(spacing: AquaTheme.space5) {
-                    headerSection
-                    folderPanel
-                    controlBar
-                    if let error = engine.errorMessage {
-                        errorBanner(error)
-                    }
-                    activityPanel
-                    footerSection
+            VStack(spacing: AquaTheme.space3) {
+                headerSection
+                folderPanel
+                controlBar
+
+                if let error = engine.errorMessage {
+                    errorBanner(error)
                 }
-                .padding(AquaTheme.space6)
+
+                activityPanel
+                exclusionsSection
+                footerSection
             }
+            .padding(AquaTheme.space4)
         }
-        .frame(minWidth: 640, minHeight: 560)
+        .frame(width: 420)
     }
 
     // MARK: - Header
-    // App title with the doc.on.doc icon and the status badge aligned right.
 
     private var headerSection: some View {
         HStack(alignment: .center) {
-            // App icon — uses a slight aqua tint for brand identity
             Image(systemName: "doc.on.doc.fill")
-                .font(.system(size: 24, weight: .semibold))
+                .font(.system(size: 18, weight: .semibold))
                 .foregroundStyle(
                     LinearGradient(
                         colors: [theme.aquaPrimary, theme.aquaDeep],
@@ -69,90 +69,79 @@ struct ContentView: View {
                     )
                 )
 
-            // App title — --type-title-1: 22pt semibold, tracking -0.2
+            // --type-title-2: 18pt semibold
             Text("FolderDoubler")
-                .font(.system(size: 22, weight: .semibold))
+                .font(.system(size: 18, weight: .semibold))
                 .tracking(-0.2)
                 .foregroundColor(theme.textPrimary)
 
             Spacer()
 
-            // Status badge — shows current sync state with colored dot
             AquaStatusBadge(status: engine.status)
         }
     }
 
-    // MARK: - Folder Selection Panel
-    // A frosted Aqua panel (Tier 2) containing the source and destination selectors.
-    // Folder paths are shown in recessed fields (spec Section 4.5 style).
+    // MARK: - Folder Panel
+    // Compact frosted panel with source and destination rows.
 
     private var folderPanel: some View {
-        VStack(alignment: .leading, spacing: AquaTheme.space5) {
-            // Source folder
-            VStack(alignment: .leading, spacing: AquaTheme.space2) {
-                AquaSectionHeader(title: "Source")
+        VStack(alignment: .leading, spacing: AquaTheme.space3) {
+            folderRow(
+                label: "Source",
+                icon: "folder.fill",
+                path: engine.sourcePath,
+                action: engine.selectSourceFolder
+            )
 
-                HStack(spacing: AquaTheme.space3) {
-                    // Folder icon
-                    Image(systemName: "folder.fill")
-                        .foregroundColor(theme.aquaPrimary)
-                        .frame(width: 20)
+            // Subtle divider between the two rows
+            Rectangle()
+                .fill(theme.strokeSubtle)
+                .frame(height: 1)
 
-                    // Path display in a recessed field
-                    Text(engine.sourcePath?.path ?? "No folder selected")
-                        .font(.system(size: 14))
-                        .foregroundColor(
-                            engine.sourcePath != nil ? theme.textPrimary : theme.textTertiary
-                        )
-                        .lineLimit(1)
-                        .truncationMode(.middle)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .aquaRecessedField()
-
-                    Button("Choose...") { engine.selectSourceFolder() }
-                        .buttonStyle(AquaSecondaryButtonStyle())
-                        .disabled(engine.isMonitoring)
-                }
-            }
-
-            // Destination folder
-            VStack(alignment: .leading, spacing: AquaTheme.space2) {
-                AquaSectionHeader(title: "Destination")
-
-                HStack(spacing: AquaTheme.space3) {
-                    Image(systemName: "externaldrive.fill")
-                        .foregroundColor(theme.aquaPrimary)
-                        .frame(width: 20)
-
-                    Text(engine.destinationPath?.path ?? "No folder selected")
-                        .font(.system(size: 14))
-                        .foregroundColor(
-                            engine.destinationPath != nil ? theme.textPrimary : theme.textTertiary
-                        )
-                        .lineLimit(1)
-                        .truncationMode(.middle)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .aquaRecessedField()
-
-                    Button("Choose...") { engine.selectDestinationFolder() }
-                        .buttonStyle(AquaSecondaryButtonStyle())
-                        .disabled(engine.isMonitoring)
-                }
-            }
+            folderRow(
+                label: "Destination",
+                icon: "externaldrive.fill",
+                path: engine.destinationPath,
+                action: engine.selectDestinationFolder
+            )
         }
-        .aquaPanel()
+        .aquaPanel(padding: AquaTheme.space4)
     }
 
-    // MARK: - Control Bar
-    // Primary action (Start/Stop) as an Aqua Gel button, plus secondary actions.
-    // These sit directly on the base canvas (not in a panel) so they pop visually.
+    /// A single folder selection row — label above, path + button below
+    private func folderRow(label: String, icon: String, path: URL?, action: @escaping () -> Void) -> some View {
+        VStack(alignment: .leading, spacing: AquaTheme.space1) {
+            AquaSectionHeader(title: label)
+
+            HStack(spacing: AquaTheme.space2) {
+                Image(systemName: icon)
+                    .font(.system(size: 13))
+                    .foregroundColor(theme.aquaPrimary)
+                    .frame(width: 16)
+
+                Text(path?.path ?? "Not selected")
+                    .font(.system(size: 13))
+                    .foregroundColor(path != nil ? theme.textPrimary : theme.textTertiary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .aquaRecessedField()
+
+                Button("Choose") { action() }
+                    .buttonStyle(AquaSecondaryButtonStyle())
+                    .controlSize(.small)
+                    .disabled(engine.isMonitoring)
+            }
+        }
+    }
+
+    // MARK: - Controls
 
     private var controlBar: some View {
-        HStack(spacing: AquaTheme.space3) {
-            // Primary CTA — Aqua Gel (blue to start, red to stop)
+        HStack(spacing: AquaTheme.space2) {
             if engine.isMonitoring {
                 Button(action: engine.stopMonitoring) {
-                    Label("Stop Monitoring", systemImage: "stop.circle.fill")
+                    Label("Stop", systemImage: "stop.circle.fill")
                 }
                 .buttonStyle(
                     AquaGelButtonStyle(
@@ -169,7 +158,6 @@ struct ContentView: View {
                 .transition(.scale(scale: 0.95).combined(with: .opacity))
             }
 
-            // Manual full sync — secondary action
             Button(action: engine.runFullSync) {
                 Label("Sync Now", systemImage: "arrow.triangle.2.circlepath")
             }
@@ -181,132 +169,186 @@ struct ContentView: View {
             )
 
             Spacer()
-
-            // Exclusions management — secondary button with count badge
-            Button(action: { showingExclusions.toggle() }) {
-                HStack(spacing: AquaTheme.space2) {
-                    Label("Exclusions", systemImage: "line.3.horizontal.decrease.circle")
-                    Text("\(engine.excludePatterns.count)")
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundColor(.white)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 2)
-                        .background(theme.aquaPrimary)
-                        .clipShape(Capsule())
-                }
-            }
-            .buttonStyle(AquaSecondaryButtonStyle())
-            .popover(isPresented: $showingExclusions) {
-                exclusionsPopover
-            }
         }
         .animation(.spring(response: 0.25, dampingFraction: 0.72), value: engine.isMonitoring)
     }
 
     // MARK: - Error Banner
-    // Red-tinted notification bar for error messages.
 
     private func errorBanner(_ message: String) -> some View {
-        HStack(spacing: AquaTheme.space3) {
+        HStack(spacing: AquaTheme.space2) {
             Image(systemName: "exclamationmark.triangle.fill")
                 .foregroundColor(theme.textDestructive)
+                .font(.system(size: 12))
 
             Text(message)
-                .font(.system(size: 14))
+                .font(.system(size: 12))
                 .foregroundColor(theme.textDestructive)
+                .lineLimit(2)
 
             Spacer()
 
             Button("Dismiss") { engine.errorMessage = nil }
-                .font(.system(size: 12, weight: .medium))
+                .font(.system(size: 11, weight: .medium))
                 .foregroundColor(theme.textDestructive)
+                .buttonStyle(.plain)
         }
-        .padding(.horizontal, AquaTheme.space5)
-        .padding(.vertical, AquaTheme.space3)
+        .padding(.horizontal, AquaTheme.space3)
+        .padding(.vertical, AquaTheme.space2)
         .background(AquaTheme.accentRed.opacity(0.08))
-        .clipShape(RoundedRectangle(cornerRadius: AquaTheme.radiusMd, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: AquaTheme.radiusSm, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: AquaTheme.radiusMd, style: .continuous)
+            RoundedRectangle(cornerRadius: AquaTheme.radiusSm, style: .continuous)
                 .strokeBorder(AquaTheme.accentRed.opacity(0.20), lineWidth: 1)
-        )
-        .transition(
-            .asymmetric(
-                insertion: .scale(scale: 0.94).combined(with: .opacity)
-                    .animation(.spring(response: 0.28, dampingFraction: 0.75)),
-                removal: .scale(scale: 0.97).combined(with: .opacity)
-                    .animation(.easeIn(duration: 0.15))
-            )
         )
     }
 
-    // MARK: - Exclusions Popover
-    // Elevated glass (Tier 3) popover for managing file/folder exclusion patterns.
+    // MARK: - Activity Log
+    // Compact frosted panel showing recent sync events.
 
-    private var exclusionsPopover: some View {
-        VStack(alignment: .leading, spacing: AquaTheme.space4) {
-            Text("Exclude Patterns")
-                .font(.system(size: 16, weight: .semibold))
-                .tracking(-0.1)
-                .foregroundColor(theme.textPrimary)
-
-            Text("Files and folders matching these patterns are skipped during sync.")
-                .font(.system(size: 12))
-                .foregroundColor(theme.textSecondary)
-
-            // Add new pattern field
-            HStack(spacing: AquaTheme.space2) {
-                TextField("e.g. *.log, .cache, build*", text: $newPattern)
-                    .textFieldStyle(.plain)
-                    .font(.system(size: 14, design: .monospaced))
-                    .padding(.horizontal, AquaTheme.space3)
-                    .padding(.vertical, AquaTheme.space2)
-                    .background(theme.bgRecessed)
-                    .clipShape(RoundedRectangle(cornerRadius: AquaTheme.radiusMd, style: .continuous))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: AquaTheme.radiusMd, style: .continuous)
-                            .strokeBorder(theme.strokeSubtle, lineWidth: 1)
-                    )
-                    .onSubmit { addPattern() }
-
-                Button("Add") { addPattern() }
-                    .buttonStyle(AquaGelButtonStyle())
-                    .disabled(newPattern.trimmingCharacters(in: .whitespaces).isEmpty)
-            }
-
-            // List of current patterns with delete support
-            ScrollView {
-                LazyVStack(spacing: 2) {
-                    ForEach(Array(engine.excludePatterns.enumerated()), id: \.element) { index, pattern in
-                        HStack {
-                            Text(pattern)
-                                .font(.system(size: 13, design: .monospaced))
-                                .foregroundColor(theme.textPrimary)
-
-                            Spacer()
-
-                            Button(action: {
-                                engine.removeExcludePattern(at: IndexSet(integer: index))
-                            }) {
-                                Image(systemName: "xmark.circle.fill")
-                                    .foregroundColor(theme.textTertiary)
-                            }
-                            .buttonStyle(.plain)
-                        }
-                        .padding(.horizontal, AquaTheme.space3)
-                        .padding(.vertical, AquaTheme.space2)
-                        .background(
-                            index % 2 == 0
-                                ? Color.clear
-                                : theme.bgRecessed.opacity(0.5)
-                        )
-                        .clipShape(RoundedRectangle(cornerRadius: AquaTheme.radiusSm, style: .continuous))
-                    }
+    private var activityPanel: some View {
+        VStack(alignment: .leading, spacing: AquaTheme.space2) {
+            HStack {
+                AquaSectionHeader(title: "Activity")
+                Spacer()
+                if !engine.events.isEmpty {
+                    Button("Clear") { engine.clearLog() }
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundColor(theme.textLink)
+                        .buttonStyle(.plain)
                 }
             }
-            .frame(minHeight: 200, maxHeight: 300)
+
+            if engine.events.isEmpty {
+                HStack {
+                    Spacer()
+                    VStack(spacing: AquaTheme.space2) {
+                        Image(systemName: "clock.arrow.circlepath")
+                            .font(.system(size: 20))
+                            .foregroundColor(theme.textTertiary)
+                        Text("No activity yet")
+                            .font(.system(size: 12))
+                            .foregroundColor(theme.textTertiary)
+                    }
+                    Spacer()
+                }
+                .frame(height: 60)
+            } else {
+                ScrollView {
+                    LazyVStack(spacing: 1) {
+                        ForEach(engine.events.prefix(100)) { event in
+                            eventRow(event)
+                        }
+                    }
+                }
+                .frame(maxHeight: 160)
+            }
         }
-        .frame(width: 360)
-        .aquaPopover()
+        .aquaPanel(padding: AquaTheme.space3)
+    }
+
+    private func eventRow(_ event: SyncEvent) -> some View {
+        HStack(spacing: AquaTheme.space1 + 2) {
+            Image(systemName: actionIcon(event.action))
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundColor(actionColor(event.action))
+                .frame(width: 14)
+
+            Text(event.timestamp, style: .time)
+                .font(.system(size: 11))
+                .foregroundColor(theme.textTertiary)
+                .frame(width: 58, alignment: .leading)
+
+            Text(event.action.rawValue)
+                .font(.system(size: 11, weight: .medium))
+                .foregroundColor(actionColor(event.action))
+                .frame(width: 46, alignment: .leading)
+
+            Text(event.relativePath)
+                .font(.system(size: 11, design: .monospaced))
+                .foregroundColor(theme.textSecondary)
+                .lineLimit(1)
+                .truncationMode(.middle)
+
+            Spacer()
+
+            if event.action != .deleted && event.action != .error && event.fileSize > 0 {
+                Text(formatFileSize(event.fileSize))
+                    .font(.system(size: 10))
+                    .foregroundColor(theme.textTertiary)
+            }
+        }
+        .padding(.vertical, 2)
+    }
+
+    // MARK: - Exclusions (Inline Disclosure)
+    // Expands in-place to show and manage exclusion patterns.
+
+    private var exclusionsSection: some View {
+        DisclosureGroup(isExpanded: $showingExclusions) {
+            VStack(spacing: AquaTheme.space2) {
+                // Add new pattern
+                HStack(spacing: AquaTheme.space2) {
+                    TextField("e.g. *.log, .cache", text: $newPattern)
+                        .textFieldStyle(.plain)
+                        .font(.system(size: 12, design: .monospaced))
+                        .padding(.horizontal, AquaTheme.space2)
+                        .padding(.vertical, AquaTheme.space1 + 2)
+                        .background(theme.bgRecessed)
+                        .clipShape(RoundedRectangle(cornerRadius: AquaTheme.radiusSm, style: .continuous))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: AquaTheme.radiusSm, style: .continuous)
+                                .strokeBorder(theme.strokeSubtle, lineWidth: 1)
+                        )
+                        .onSubmit { addPattern() }
+
+                    Button("Add") { addPattern() }
+                        .buttonStyle(AquaGelButtonStyle())
+                        .controlSize(.small)
+                        .disabled(newPattern.trimmingCharacters(in: .whitespaces).isEmpty)
+                }
+
+                // Pattern list
+                ScrollView {
+                    LazyVStack(spacing: 1) {
+                        ForEach(Array(engine.excludePatterns.enumerated()), id: \.element) { index, pattern in
+                            HStack {
+                                Text(pattern)
+                                    .font(.system(size: 11, design: .monospaced))
+                                    .foregroundColor(theme.textSecondary)
+                                Spacer()
+                                Button {
+                                    engine.removeExcludePattern(at: IndexSet(integer: index))
+                                } label: {
+                                    Image(systemName: "xmark.circle.fill")
+                                        .font(.system(size: 11))
+                                        .foregroundColor(theme.textTertiary)
+                                }
+                                .buttonStyle(.plain)
+                            }
+                            .padding(.horizontal, AquaTheme.space2)
+                            .padding(.vertical, 3)
+                        }
+                    }
+                }
+                .frame(maxHeight: 120)
+            }
+            .padding(.top, AquaTheme.space2)
+        } label: {
+            HStack(spacing: AquaTheme.space2) {
+                Text("Exclusions")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(theme.textSecondary)
+                Text("\(engine.excludePatterns.count)")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 5)
+                    .padding(.vertical, 1)
+                    .background(theme.aquaPrimary)
+                    .clipShape(Capsule())
+            }
+        }
+        .tint(theme.textSecondary)
     }
 
     private func addPattern() {
@@ -314,128 +356,41 @@ struct ContentView: View {
         newPattern = ""
     }
 
-    // MARK: - Activity Log Panel
-    // Frosted panel (Tier 2) containing a scrollable list of sync events.
-    // No heavy separators between rows (per spec sidebar guidance).
-
-    private var activityPanel: some View {
-        VStack(alignment: .leading, spacing: AquaTheme.space3) {
-            // Section header with clear button
-            HStack {
-                AquaSectionHeader(title: "Activity Log")
-                Spacer()
-                if !engine.events.isEmpty {
-                    Button("Clear") { engine.clearLog() }
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundColor(theme.textLink)
-                        .buttonStyle(.plain)
-                }
-            }
-
-            if engine.events.isEmpty {
-                // Empty state placeholder
-                VStack(spacing: AquaTheme.space3) {
-                    Image(systemName: "clock.arrow.circlepath")
-                        .font(.system(size: 28))
-                        .foregroundColor(theme.textTertiary)
-                    Text("No sync activity yet")
-                        .font(.system(size: 14))
-                        .foregroundColor(theme.textTertiary)
-                    Text("Start monitoring to see file changes here")
-                        .font(.system(size: 12))
-                        .foregroundColor(theme.textTertiary)
-                }
-                .frame(maxWidth: .infinity)
-                .frame(height: 120)
-            } else {
-                // Scrollable event list
-                ScrollView {
-                    LazyVStack(spacing: 1) {
-                        ForEach(engine.events.prefix(200)) { event in
-                            eventRow(event)
-                        }
-                    }
-                }
-                .frame(maxHeight: 260)
-            }
-        }
-        .aquaPanel()
-    }
-
-    /// A single row in the activity log.
-    /// Shows: action icon, timestamp, action label, relative path, and file size.
-    private func eventRow(_ event: SyncEvent) -> some View {
-        HStack(spacing: AquaTheme.space2) {
-            // Colored action icon
-            Image(systemName: actionIcon(event.action))
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundColor(actionColor(event.action))
-                .frame(width: 18)
-
-            // Timestamp — --type-caption: 12pt regular
-            Text(event.timestamp, style: .time)
-                .font(.system(size: 12))
-                .foregroundColor(theme.textTertiary)
-                .frame(width: 65, alignment: .leading)
-
-            // Action label
-            Text(event.action.rawValue)
-                .font(.system(size: 12, weight: .medium))
-                .foregroundColor(actionColor(event.action))
-                .frame(width: 52, alignment: .leading)
-
-            // Relative file path — monospaced for readability
-            Text(event.relativePath)
-                .font(.system(size: 12, design: .monospaced))
-                .foregroundColor(theme.textSecondary)
-                .lineLimit(1)
-                .truncationMode(.middle)
-
-            Spacer()
-
-            // File size (skip for deletions and errors)
-            if event.action != .deleted && event.action != .error && event.fileSize > 0 {
-                Text(formatFileSize(event.fileSize))
-                    .font(.system(size: 11))
-                    .foregroundColor(theme.textTertiary)
-            }
-        }
-        .padding(.horizontal, AquaTheme.space3)
-        .padding(.vertical, AquaTheme.space1 + 2)
-    }
-
     // MARK: - Footer
-    // Stats bar showing last sync time and total synced count.
-    // Uses --type-caption with secondary color.
 
     private var footerSection: some View {
-        HStack {
+        HStack(spacing: AquaTheme.space2) {
             if let lastSync = engine.lastSyncDate {
                 Label {
-                    Text("Last sync: \(lastSync, style: .relative) ago")
+                    Text("\(lastSync, style: .relative) ago")
                 } icon: {
                     Image(systemName: "clock")
                 }
-                .font(.system(size: 12))
-                .foregroundColor(theme.textSecondary)
-            } else {
-                Label("Waiting for first sync", systemImage: "clock")
-                    .font(.system(size: 12))
-                    .foregroundColor(theme.textTertiary)
+                .font(.system(size: 11))
+                .foregroundColor(theme.textTertiary)
             }
 
             Spacer()
 
-            Label("\(engine.totalFilesSynced) files synced", systemImage: "doc.circle")
-                .font(.system(size: 12))
-                .foregroundColor(theme.textSecondary)
+            Text("\(engine.totalFilesSynced) synced")
+                .font(.system(size: 11))
+                .foregroundColor(theme.textTertiary)
+
+            // Quit button — important for menu bar apps since there's
+            // no standard Cmd+Q accessible without a main menu
+            Button(action: {
+                NSApplication.shared.terminate(nil)
+            }) {
+                Text("Quit")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundColor(theme.textSecondary)
+            }
+            .buttonStyle(.plain)
         }
-        .padding(.horizontal, AquaTheme.space2)
     }
 
     // MARK: - Helpers
 
-    /// Maps a sync action to an SF Symbol name
     private func actionIcon(_ action: SyncAction) -> String {
         switch action {
         case .copied:  return "plus.circle.fill"
@@ -445,7 +400,6 @@ struct ContentView: View {
         }
     }
 
-    /// Maps a sync action to a semantic color from the token system
     private func actionColor(_ action: SyncAction) -> Color {
         switch action {
         case .copied:  return AquaTheme.accentMint
@@ -455,7 +409,6 @@ struct ContentView: View {
         }
     }
 
-    /// Formats bytes into a human-readable string (e.g. "2.1 KB")
     private func formatFileSize(_ bytes: Int64) -> String {
         ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file)
     }
