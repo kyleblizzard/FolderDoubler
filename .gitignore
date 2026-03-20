@@ -1,0 +1,28 @@
+# Xcode
+DerivedData/
+*.xcuserdata
+xcuserdata/
+*.xcworkspace
+*.pbxuser
+*.mode1v3
+*.mode2v3
+*.perspectivev3
+*.xccheckout
+*.moved-aside
+
+# Build
+build/
+*.o
+*.dSYM
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Project-specific exclusions
+claude.md.txt
+tutorial.txt
+tasks/
+*.zip
+zipBackups/

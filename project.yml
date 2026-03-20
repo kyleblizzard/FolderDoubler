@@ -1,0 +1,24 @@
+name: FolderDoubler
+options:
+  bundleIdPrefix: com.kyleblizzard
+  deploymentTarget:
+    macOS: "13.0"
+  xcodeVersion: "15.0"
+targets:
+  FolderDoubler:
+    type: application
+    platform: macOS
+    sources:
+      - FolderDoubler
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.kyleblizzard.FolderDoubler
+        MARKETING_VERSION: "1.0.0"
+        CURRENT_PROJECT_VERSION: 1
+        SWIFT_VERSION: "5.9"
+        MACOSX_DEPLOYMENT_TARGET: "13.0"
+        INFOPLIST_KEY_LSApplicationCategoryType: "public.app-category.utilities"
+        INFOPLIST_KEY_CFBundleDisplayName: "FolderDoubler"
+        CODE_SIGN_ENTITLEMENTS: ""
+        CODE_SIGN_IDENTITY: "-"
+        GENERATE_INFOPLIST_FILE: YES
