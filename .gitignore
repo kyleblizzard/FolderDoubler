@@ -21,8 +21,11 @@ build/
 .LSOverride
 
 # Project-specific exclusions
+claude.md
 claude.md.txt
+CLAUDE.md
 tutorial.txt
 tasks/
 *.zip
+*.dmg
 zipBackups/
